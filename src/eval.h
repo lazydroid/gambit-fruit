@@ -13,7 +13,7 @@
 
 extern void eval_init ();
 
-extern int  eval      (const board_t * board);
+extern int  eval      (/*const*/ board_t * board, int alpha, int beta, bool do_le, bool in_check);
 
 #endif // !defined EVAL_H
 

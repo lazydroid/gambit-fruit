@@ -273,19 +273,23 @@ void trans_store(trans_t * trans, uint64 key, int move, int depth, int min_value
 
          entry->date = trans->date;
 
-         if (depth > entry->depth) entry->depth = depth; // for replacement scheme
-
-         if (move != MoveNone && depth >= entry->move_depth) {
+         if (trans_endgame || depth > entry->depth) entry->depth = depth; 
+		 /* if (depth > entry->depth)  entry->depth = depth; // for replacement scheme */
+		 
+         // if (move != MoveNone /* && depth >= entry->move_depth */) {
+		 if (move != MoveNone && (trans_endgame || depth >= entry->move_depth)) {
             entry->move_depth = depth;
             entry->move = move;
          }
 
-         if (min_value > -ValueInf && depth >= entry->min_depth) {
+         // if (min_value > -ValueInf /* && depth >= entry->min_depth */) {
+	     if (min_value > -ValueInf && (trans_endgame || depth >= entry->min_depth)) {
             entry->min_depth = depth;
             entry->min_value = min_value;
          }
 
-         if (max_value < +ValueInf && depth >= entry->max_depth) {
+         // if (max_value < +ValueInf /* && depth >= entry->max_depth */) {
+         if (max_value < +ValueInf && (trans_endgame || depth >= entry->max_depth)) {
             entry->max_depth = depth;
             entry->max_value = max_value;
          }

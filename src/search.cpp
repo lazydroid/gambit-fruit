@@ -4,6 +4,7 @@
 // includes
 
 #include <csetjmp>
+#include <cstring>
 
 #include "attack.h"
 #include "board.h"
@@ -28,7 +29,6 @@
 // constants
 
 static const bool UseCpuTime = false; // false
-static const bool UseEvent = true; // true
 
 static const bool UseShortSearch = true;
 static const int ShortSearchDepth = 1;
@@ -39,24 +39,26 @@ static const bool DispDepthEnd = true; // true
 static const bool DispRoot = true; // true
 static const bool DispStat = true; // true
 
-static const bool UseEasy = true; // singular move
 static const int EasyThreshold = 150;
 static const double EasyRatio = 0.20;
 
-static const bool UseEarly = true; // early iteration end
 static const double EarlyRatio = 0.60;
 
-static const bool UseBad = true;
 static const int BadThreshold = 50; // 50
 static const bool UseExtension = true;
 
 // variables
 
+static search_multipv_t save_multipv[MultiPVMax];
+
+bool trans_endgame;
+search_param_t SearchStack[HeightMax];
+
 search_input_t SearchInput[1];
 search_info_t SearchInfo[1];
 search_root_t SearchRoot[1];
 search_current_t SearchCurrent[1];
-search_best_t SearchBest[1];
+search_best_t SearchBest[MultiPVMax];
 
 // prototypes
 
@@ -101,10 +103,10 @@ void search_clear() {
 
    // SearchBest
 
-   SearchBest->move = MoveNone;
-   SearchBest->value = 0;
-   SearchBest->flags = SearchUnknown;
-   PV_CLEAR(SearchBest->pv);
+   SearchBest[SearchCurrent->multipv].move = MoveNone;
+   SearchBest[SearchCurrent->multipv].value = 0;
+   SearchBest[SearchCurrent->multipv].flags = SearchUnknown;
+   PV_CLEAR(SearchBest[SearchCurrent->multipv].pv);
 
    // SearchRoot
 
@@ -134,7 +136,24 @@ void search() {
 
    int move;
    int depth;
+   int i;
+   bool search_ready;
 
+     
+   for (i = 0; i < MultiPVMax; i++){
+	  save_multipv[SearchCurrent->multipv].mate = 0;
+	  save_multipv[SearchCurrent->multipv].depth = 0;
+	  save_multipv[SearchCurrent->multipv].max_depth = 0;
+	  save_multipv[SearchCurrent->multipv].value = 0;
+	  save_multipv[SearchCurrent->multipv].time = 0;
+	  save_multipv[SearchCurrent->multipv].node_nb = 0;
+	  strcpy(save_multipv[SearchCurrent->multipv].pv_string,""); 
+   }
+  
+   SearchInput->multipv = option_get_int("MultiPV")-1;
+   SearchCurrent->multipv = 0;
+   
+   
    ASSERT(board_is_ok(SearchInput->board));
 
    // opening book
@@ -147,12 +166,12 @@ void search() {
 
          // play book move
 
-         SearchBest->move = move;
-         SearchBest->value = 1;
-         SearchBest->flags = SearchExact;
-         SearchBest->depth = 1;
-         SearchBest->pv[0] = move;
-         SearchBest->pv[1] = MoveNone;
+         SearchBest[SearchCurrent->multipv].move = move;
+         SearchBest[SearchCurrent->multipv].value = 1;
+         SearchBest[SearchCurrent->multipv].flags = SearchExact;
+         SearchBest[SearchCurrent->multipv].depth = 1;
+         SearchBest[SearchCurrent->multipv].pv[0] = move;
+         SearchBest[SearchCurrent->multipv].pv[1] = MoveNone;
 
          search_update_best();
 
@@ -163,6 +182,10 @@ void search() {
    // SearchInput
 
    gen_legal_moves(SearchInput->list,SearchInput->board);
+
+   if (LIST_SIZE(SearchInput->list) < SearchInput->multipv+1){ 
+	  SearchInput->multipv = LIST_SIZE(SearchInput->list)-1;
+   }
 
    if (LIST_SIZE(SearchInput->list) <= 1) {
       SearchInput->depth_is_limited = true;
@@ -195,81 +218,97 @@ void search() {
    sort_init();
    search_full_init(SearchRoot->list,SearchCurrent->board);
 
+   // analyze game for evaluation
+   
+   if (SearchCurrent->board->piece_size[White] < 3 && SearchCurrent->board->piece_size[Black] < 3){
+	   trans_endgame = true;
+   }
+   else{
+	   trans_endgame = false;
+   }
+
+   
    // iterative deepening
 
+   search_ready = false;
+
    for (depth = 1; depth < DepthMax; depth++) {
+	   for (SearchCurrent->multipv = 0; SearchCurrent->multipv <= SearchInput->multipv; SearchCurrent->multipv++){
 
-      if (DispDepthStart) send("info depth %d",depth);
+		  if (DispDepthStart && SearchCurrent->multipv == 0) send("info depth %d",depth);
 
-      SearchRoot->bad_1 = false;
-      SearchRoot->change = false;
+		  SearchCurrent->max_extensions = depth * 10;
+		  SearchRoot->bad_1 = false;
+		  SearchRoot->change = false;
 
-      board_copy(SearchCurrent->board,SearchInput->board);
+		  board_copy(SearchCurrent->board,SearchInput->board);
 
-      if (UseShortSearch && depth <= ShortSearchDepth) {
-         search_full_root(SearchRoot->list,SearchCurrent->board,depth,SearchShort);
-      } else {
-         search_full_root(SearchRoot->list,SearchCurrent->board,depth,SearchNormal);
-      }
+		  if (UseShortSearch && depth <= ShortSearchDepth) {
+			 search_full_root(SearchRoot->list,SearchCurrent->board,depth,SearchShort);
+		  } else {
+			 search_full_root(SearchRoot->list,SearchCurrent->board,depth,SearchNormal);
+		  }
 
-      search_update_current();
+		  search_update_current();
 
-      if (DispDepthEnd) {
-         send("info depth %d seldepth %d time %.0f nodes " S64_FORMAT " nps %.0f",depth,SearchCurrent->max_depth,SearchCurrent->time*1000.0,SearchCurrent->node_nb,SearchCurrent->speed);
-      }
+		  if (DispDepthEnd && SearchCurrent->multipv == SearchInput->multipv) {
+			 send("info depth %d seldepth %d time %.0f nodes " S64_FORMAT " nps %.0f",depth,SearchCurrent->max_depth,SearchCurrent->time*1000.0,SearchCurrent->node_nb,SearchCurrent->speed);
+		  }
 
-      // update search info
+		  // update search info
 
-      if (depth >= 1) SearchInfo->can_stop = true;
+		  if (depth >= 1) SearchInfo->can_stop = true;
 
-      if (depth == 1
-       && LIST_SIZE(SearchRoot->list) >= 2
-       && LIST_VALUE(SearchRoot->list,0) >= LIST_VALUE(SearchRoot->list,1) + EasyThreshold) {
-         SearchRoot->easy = true;
-      }
+		  if (depth == 1
+		   && LIST_SIZE(SearchRoot->list) >= 2
+		   && LIST_VALUE(SearchRoot->list,0) >= LIST_VALUE(SearchRoot->list,1) + EasyThreshold) {
+			 SearchRoot->easy = true;
+		  }
 
-      if (UseBad && depth > 1) {
-         SearchRoot->bad_2 = SearchRoot->bad_1;
-         SearchRoot->bad_1 = false;
-         ASSERT(SearchRoot->bad_2==(SearchBest->value<=SearchRoot->last_value-BadThreshold));
-      }
+		  if (depth > 1) {
+			 SearchRoot->bad_2 = SearchRoot->bad_1;
+			 SearchRoot->bad_1 = false;
+			 ASSERT(SearchRoot->bad_2==(SearchBest->value<=SearchRoot->last_value-BadThreshold));
+		  }
 
-      SearchRoot->last_value = SearchBest->value;
+		  SearchRoot->last_value = SearchBest[SearchCurrent->multipv].value;
 
-      // stop search?
+		  // stop search?
 
-      if (SearchInput->depth_is_limited
-       && depth >= SearchInput->depth_limit) {
-         SearchRoot->flag = true;
-      }
+		  if (SearchInput->depth_is_limited && SearchCurrent->multipv >= SearchInput->multipv
+		   && depth >= SearchInput->depth_limit) {
+			 SearchRoot->flag = true;
+		  }
 
-      if (SearchInput->time_is_limited
-       && SearchCurrent->time >= SearchInput->time_limit_1
-       && !SearchRoot->bad_2) {
-         SearchRoot->flag = true;
-      }
+		  if (SearchInput->time_is_limited
+		   && SearchCurrent->time * 2 >= SearchInput->time_limit_1
+		   && !SearchRoot->bad_2) {
+			 SearchRoot->flag = true;
+		  }
 
-      if (UseEasy
-       && SearchInput->time_is_limited
-       && SearchCurrent->time >= SearchInput->time_limit_1 * EasyRatio
-       && SearchRoot->easy) {
-         ASSERT(!SearchRoot->bad_2);
-         ASSERT(!SearchRoot->change);
-         SearchRoot->flag = true;
-      }
+		  if (SearchInput->time_is_limited
+		   && SearchCurrent->time >= SearchInput->time_limit_1 * EasyRatio
+		   && SearchRoot->easy) {
+			 ASSERT(!SearchRoot->bad_2);
+			 ASSERT(!SearchRoot->change);
+			 SearchRoot->flag = true;
+		  }
 
-      if (UseEarly
-       && SearchInput->time_is_limited
-       && SearchCurrent->time >= SearchInput->time_limit_1 * EarlyRatio
-       && !SearchRoot->bad_2
-       && !SearchRoot->change) {
-         SearchRoot->flag = true;
-      }
+		  if (SearchInput->time_is_limited
+		   && SearchCurrent->time >= SearchInput->time_limit_1 * EarlyRatio
+		   && !SearchRoot->bad_2
+		   && !SearchRoot->change) {
+			 SearchRoot->flag = true;
+		  }
 
-      if (SearchInfo->can_stop
-       && (SearchInfo->stop || (SearchRoot->flag && !SearchInput->infinite))) {
-         break;
-      }
+		  if (SearchInfo->can_stop 
+		   && (SearchInfo->stop || (SearchRoot->flag && !SearchInput->infinite))) {
+			  search_ready = true;
+			  break;
+		  }
+	   }
+	   if (search_ready)
+		   break;
    }
 }
 
@@ -281,18 +320,19 @@ void search_update_best() {
    const mv_t * pv;
    double time;
    sint64 node_nb;
-   int mate;
+   int mate, i, z;
+   bool found;
    char move_string[256], pv_string[512];
-
+      
    search_update_current();
 
    if (DispBest) {
 
-      move = SearchBest->move;
-      value = SearchBest->value;
-      flags = SearchBest->flags;
-      depth = SearchBest->depth;
-      pv = SearchBest->pv;
+      move = SearchBest[SearchCurrent->multipv].move;
+      value = SearchBest[SearchCurrent->multipv].value;
+      flags = SearchBest[SearchCurrent->multipv].flags;
+      depth = SearchBest[SearchCurrent->multipv].depth;
+      pv = SearchBest[SearchCurrent->multipv].pv;
 
       max_depth = SearchCurrent->max_depth;
       time = SearchCurrent->time;
@@ -301,40 +341,94 @@ void search_update_best() {
       move_to_string(move,move_string,256);
       pv_to_string(pv,pv_string,512);
 
-      mate = value_to_mate(value);
+	  mate = value_to_mate(value);
 
-      if (mate == 0) {
+	  if (SearchCurrent->multipv == 0){
+		  save_multipv[SearchCurrent->multipv].mate = mate;
+		  save_multipv[SearchCurrent->multipv].depth = depth;
+		  save_multipv[SearchCurrent->multipv].max_depth = max_depth;
+		  save_multipv[SearchCurrent->multipv].value = value;
+		  save_multipv[SearchCurrent->multipv].time = time*1000.0;
+		  save_multipv[SearchCurrent->multipv].node_nb = node_nb;
+		  strcpy(save_multipv[SearchCurrent->multipv].pv_string,pv_string); 
+	  }
+	  else{
+		  found = false;
+		  for (i = 0; i < SearchCurrent->multipv; i++){
+			  if (save_multipv[i].value < value){
+				  found = true;
+				  break;
+			  }
+		  }
+		  if (found){
 
-         // normal evaluation
+			  for (z = SearchCurrent->multipv; z > i; z--){
+				  save_multipv[z].mate = save_multipv[z-1].mate;
+				  save_multipv[z].depth = save_multipv[z-1].depth;
+				  save_multipv[z].max_depth = save_multipv[z-1].max_depth;
+				  save_multipv[z].value = save_multipv[z-1].value;
+				  save_multipv[z].time = save_multipv[z-1].time;
+				  save_multipv[z].node_nb = save_multipv[z-1].node_nb;
+				  strcpy(save_multipv[z].pv_string,save_multipv[z-1].pv_string); 
+			  }
+			  
+			  save_multipv[i].mate = mate;
+		      save_multipv[i].depth = depth;
+		      save_multipv[i].max_depth = max_depth;
+		      save_multipv[i].value = value;
+		      save_multipv[i].time = time*1000.0;
+		      save_multipv[i].node_nb = node_nb;
+		      strcpy(save_multipv[i].pv_string,pv_string); 
+			  
+		  }
+		  else{
+			  save_multipv[SearchCurrent->multipv].mate = mate;
+			  save_multipv[SearchCurrent->multipv].depth = depth;
+			  save_multipv[SearchCurrent->multipv].max_depth = max_depth;
+			  save_multipv[SearchCurrent->multipv].value = value;
+			  save_multipv[SearchCurrent->multipv].time = time*1000.0;
+			  save_multipv[SearchCurrent->multipv].node_nb = node_nb;
+			  strcpy(save_multipv[SearchCurrent->multipv].pv_string,pv_string); 
+		  }
+	  }
+	  
+      if (depth > 1 || (depth == 1 && SearchCurrent->multipv == SearchInput->multipv)){
+		  for (i = 0; i <= SearchInput->multipv; i++){
 
-         if (false) {
-         } else if (flags == SearchExact) {
-            send("info depth %d seldepth %d score cp %d time %.0f nodes " S64_FORMAT " pv %s",depth,max_depth,value,time*1000.0,node_nb,pv_string);
-         } else if (flags == SearchLower) {
-            send("info depth %d seldepth %d score cp %d lowerbound time %.0f nodes " S64_FORMAT " pv %s",depth,max_depth,value,time*1000.0,node_nb,pv_string);
-         } else if (flags == SearchUpper) {
-            send("info depth %d seldepth %d score cp %d upperbound time %.0f nodes " S64_FORMAT " pv %s",depth,max_depth,value,time*1000.0,node_nb,pv_string);
-         }
+			  if (save_multipv[i].mate == 0) {
 
-      } else {
+				 // normal evaluation
 
-         // mate announcement
+			  if (false) {
+				 } else if (flags == SearchExact) {
+					send("info multipv %d depth %d seldepth %d score cp %d time %.0f nodes " S64_FORMAT " pv %s",i+1,save_multipv[i].depth,save_multipv[i].max_depth,save_multipv[i].value,save_multipv[i].time,save_multipv[i].node_nb,save_multipv[i].pv_string);
+				 } else if (flags == SearchLower) {
+					send("info multipv %d depth %d seldepth %d score cp %d lowerbound time %.0f nodes " S64_FORMAT " pv %s",i+1,save_multipv[i].depth,save_multipv[i].max_depth,save_multipv[i].value,save_multipv[i].time,save_multipv[i].node_nb,save_multipv[i].pv_string);
+				 } else if (flags == SearchUpper) {
+					send("info multipv %d depth %d seldepth %d score cp %d upperbound time %.0f nodes " S64_FORMAT " pv %s",i+1,save_multipv[i].depth,save_multipv[i].max_depth,save_multipv[i].value,save_multipv[i].time,save_multipv[i].node_nb,save_multipv[i].pv_string);
+				 }
 
-         if (false) {
-         } else if (flags == SearchExact) {
-            send("info depth %d seldepth %d score mate %d time %.0f nodes " S64_FORMAT " pv %s",depth,max_depth,mate,time*1000.0,node_nb,pv_string);
-         } else if (flags == SearchLower) {
-            send("info depth %d seldepth %d score mate %d lowerbound time %.0f nodes " S64_FORMAT " pv %s",depth,max_depth,mate,time*1000.0,node_nb,pv_string);
-         } else if (flags == SearchUpper) {
-            send("info depth %d seldepth %d score mate %d upperbound time %.0f nodes " S64_FORMAT " pv %s",depth,max_depth,mate,time*1000.0,node_nb,pv_string);
-         }
-      }
+			  } else {
+
+				 // mate announcement
+
+				 if (false) {
+				 } else if (flags == SearchExact) {
+					send("info multipv %d depth %d seldepth %d score mate %d time %.0f nodes " S64_FORMAT " pv %s",i+1,save_multipv[i].depth,save_multipv[i].max_depth,save_multipv[i].mate,save_multipv[i].time,save_multipv[i].node_nb,save_multipv[i].pv_string);
+				 } else if (flags == SearchLower) {
+					send("info multipv %d depth %d seldepth %d score mate %d lowerbound time %.0f nodes " S64_FORMAT " pv %s",i+1,save_multipv[i].depth,save_multipv[i].max_depth,save_multipv[i].mate,save_multipv[i].time,save_multipv[i].node_nb,save_multipv[i].pv_string);
+				 } else if (flags == SearchUpper) {
+					send("info multipv %d depth %d seldepth %d score mate %d upperbound time %.0f nodes " S64_FORMAT " pv %s",i+1,save_multipv[i].depth,save_multipv[i].max_depth,save_multipv[i].mate,save_multipv[i].time,save_multipv[i].node_nb,save_multipv[i].pv_string);
+				 }
+			  }
+		  }
+	  }
    }
 
    // update time-management info
 
-   if (UseBad && SearchBest->depth > 1) {
-      if (SearchBest->value <= SearchRoot->last_value - BadThreshold) {
+   if (SearchBest[SearchCurrent->multipv].depth > 1) {
+      if (SearchBest[SearchCurrent->multipv].value <= SearchRoot->last_value - BadThreshold) {
          SearchRoot->bad_1 = true;
          SearchRoot->easy = false;
          SearchRoot->flag = false;
@@ -399,7 +493,7 @@ void search_check() {
 
    search_send_stat();
 
-   if (UseEvent) event();
+   event();
 
    if (SearchInput->depth_is_limited
     && SearchRoot->depth > SearchInput->depth_limit) {
@@ -419,7 +513,7 @@ void search_check() {
       SearchRoot->flag = true;
    }
 
-   if (SearchInfo->can_stop
+   if (SearchInfo->can_stop 
     && (SearchInfo->stop || (SearchRoot->flag && !SearchInput->infinite))) {
       longjmp(SearchInfo->buf,1);
    }

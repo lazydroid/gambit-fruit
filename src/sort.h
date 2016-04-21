@@ -13,12 +13,20 @@
 
 // types
 
+typedef struct {
+  uint64 tried;
+  uint64 success;
+} fail_high_stats_t;
+
+
 struct sort_t {
    int depth;
    int height;
    int trans_killer;
    int killer_1;
    int killer_2;
+   int killer_3;
+   int killer_4;
    int gen;
    int test;
    int pos;
@@ -43,6 +51,12 @@ extern void good_move    (int move, const board_t * board, int depth, int height
 
 extern void history_good (int move, const board_t * board);
 extern void history_bad  (int move, const board_t * board);
+extern void history_very_bad  (int move, const board_t * board);
+
+extern bool history_reduction(int move, const board_t * board);
+extern void history_tried(int move, const board_t * board);
+extern void history_success(int move, const board_t * board); 
+
 
 extern void note_moves   (list_t * list, const board_t * board, int height, int trans_killer);
 

@@ -46,21 +46,23 @@ const int StackSize = 4096;
 
 struct board_t {
 
+   int piece_material[ColourNb]; // Thomas
+     	
    int square[SquareNb];
    int pos[SquareNb];
 
-   sq_t piece[ColourNb][32]; // only 17 are needed
+   sq_t piece[ColourNb][17]; // was 32
    int piece_size[ColourNb];
 
-   sq_t pawn[ColourNb][16]; // only 9 are needed
+   sq_t pawn[ColourNb][9]; // was 16
    int pawn_size[ColourNb];
 
    int piece_nb;
-   int number[16]; // only 12 are needed
+   int number[12]; // was 16
 
    int pawn_file[ColourNb][FileNb];
 
-   int turn;
+   bool turn;
    int flags;
    int ep_square;
    int ply_nb;
@@ -70,6 +72,7 @@ struct board_t {
 
    int opening;
    int endgame;
+   int pvalue; //Ryan
 
    uint64 key;
    uint64 pawn_key;

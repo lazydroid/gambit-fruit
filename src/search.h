@@ -15,6 +15,8 @@
 
 // constants
 
+const int MultiPVMax = 10;
+
 const int DepthMax = 64;
 const int HeightMax = 256;
 
@@ -28,12 +30,31 @@ const int SearchExact   = 3;
 
 // types
 
+struct search_multipv_t {
+   int mate;
+   int depth;
+   int max_depth;
+   int value;
+   double time;
+   sint64 node_nb;
+   char pv_string[512];
+
+};
+
+struct search_param_t {
+   int move;
+   int best_move;
+   int threat_move;
+   bool reduced;
+};
+
 struct search_input_t {
    board_t board[1];
    list_t list[1];
    bool infinite;
    bool depth_is_limited;
    int depth_limit;
+   int multipv;
    bool time_is_limited;
    double time_limit_1;
    double time_limit_2;
@@ -74,6 +95,8 @@ struct search_current_t {
    board_t board[1];
    my_timer_t timer[1];
    int max_depth;
+   int max_extensions; // Thomas
+   int multipv;
    sint64 node_nb;
    double time;
    double speed;
@@ -82,9 +105,10 @@ struct search_current_t {
 
 // variables
 
+extern search_param_t SearchStack[HeightMax]; // Thomas
 extern search_input_t SearchInput[1];
 extern search_info_t SearchInfo[1];
-extern search_best_t SearchBest[1];
+extern search_best_t SearchBest[MultiPVMax];
 extern search_root_t SearchRoot[1];
 extern search_current_t SearchCurrent[1];
 

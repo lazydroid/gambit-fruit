@@ -148,7 +148,7 @@ int see_move(int move, const board_t * board) {
 }
 
 // see_square()
-
+/*
 int see_square(const board_t * board, int to, int colour) {
 
    int att, def;
@@ -193,7 +193,7 @@ int see_square(const board_t * board, int to, int colour) {
 
    return see_rec(alists,board,att,to,piece_value);
 }
-
+*/
 // see_rec()
 
 static int see_rec(alists_t * alists, const board_t * board, int colour, int to, int piece_value) {

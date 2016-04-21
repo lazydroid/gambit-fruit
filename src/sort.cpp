@@ -80,6 +80,7 @@ static int Code[CODE_SIZE];
 
 static uint16 Killer[HeightMax][KillerNb];
 
+static fail_high_stats_t FailHighStats[HistorySize];
 static uint16 History[HistorySize];
 static uint16 HistHit[HistorySize];
 static uint16 HistTot[HistorySize];
@@ -126,6 +127,8 @@ void sort_init() {
    for (i = 0; i < HistorySize; i++) {
       HistHit[i] = 1;
       HistTot[i] = 1;
+	  FailHighStats[i].success = 1;
+	  FailHighStats[i].tried = 1;
    }
 
    // Code[]
@@ -186,6 +189,14 @@ void sort_init(sort_t * sort, board_t * board, const attack_t * attack, int dept
    sort->trans_killer = trans_killer;
    sort->killer_1 = Killer[sort->height][0];
    sort->killer_2 = Killer[sort->height][1];
+   if (sort->height > 2){
+	  sort->killer_3 = Killer[sort->height-2][0];
+      sort->killer_4 = Killer[sort->height-2][1]; 
+   }
+   else{
+      sort->killer_3 = MoveNone;
+      sort->killer_4 = MoveNone;
+   }
 
    if (ATTACK_IN_CHECK(sort->attack)) {
 
@@ -275,6 +286,8 @@ int sort_next(sort_t * sort) {
             if (move == sort->trans_killer) continue;
             if (move == sort->killer_1) continue;
             if (move == sort->killer_2) continue;
+			if (move == sort->killer_3) continue;
+            if (move == sort->killer_4) continue;
             if (!pseudo_is_legal(move,sort->board)) continue;
 
             sort->value = history_prob(move,sort->board);
@@ -325,6 +338,8 @@ int sort_next(sort_t * sort) {
          LIST_CLEAR(sort->list);
          if (sort->killer_1 != MoveNone) LIST_ADD(sort->list,sort->killer_1);
          if (sort->killer_2 != MoveNone) LIST_ADD(sort->list,sort->killer_2);
+		 if (sort->killer_3 != MoveNone) LIST_ADD(sort->list,sort->killer_3);
+         if (sort->killer_4 != MoveNone) LIST_ADD(sort->list,sort->killer_4);
 
          sort->test = TEST_KILLER;
 
@@ -555,6 +570,84 @@ void history_bad(int move, const board_t * board) {
    ASSERT(HistTot[index]<HistoryMax);
 }
 
+// history_very_bad()
+
+void history_very_bad(int move, const board_t * board) {
+
+   int index;
+
+   ASSERT(move_is_ok(move));
+   ASSERT(board!=NULL);
+
+   //if (move_is_tactical(move,board)) return;
+
+   // history
+
+   index = PIECE_TO_12(board->square[MOVE_TO(move)]) * 64 + SQUARE_TO_64(MOVE_TO(move));
+
+   HistTot[index] += 100;
+
+   if (HistTot[index] >= HistoryMax) {
+      HistHit[index] = (HistHit[index] + 1) / 2;
+      HistTot[index] = (HistTot[index] + 1) / 2;
+   }
+
+   ASSERT(HistHit[index]<=HistTot[index]);
+   ASSERT(HistTot[index]<HistoryMax);
+}
+
+// history_tried()
+
+void history_tried(int move, const board_t * board) {
+
+   int index;
+
+   ASSERT(move_is_ok(move));
+   ASSERT(board!=NULL);
+
+   if (move_is_tactical(move,board)) return;
+
+   // history
+
+   index = history_index(move,board);
+
+   FailHighStats[index].tried++;
+}
+
+// history_success()
+
+void history_success(int move, const board_t * board) {
+
+   int index;
+
+   ASSERT(move_is_ok(move));
+   ASSERT(board!=NULL);
+
+   if (move_is_tactical(move,board)) return;
+
+   // history
+
+   index = history_index(move,board);
+
+   FailHighStats[index].success++;
+}
+
+bool history_reduction(int move, const board_t * board) {
+	 
+   int index;
+
+   ASSERT(move_is_ok(move));
+   ASSERT(board!=NULL);
+
+   // history
+
+   index = history_index(move,board);
+
+   if(FailHighStats[index].success > FailHighStats[index].tried / 8) 
+	   return false;
+   return true;
+}
+
 // note_moves()
 
 void note_moves(list_t * list, const board_t * board, int height, int trans_killer) {
@@ -676,7 +769,11 @@ static int move_value(int move, const board_t * board, int height, int trans_kil
    } else if (move == Killer[height][0]) { // killer 1
       value = KillerScore;
    } else if (move == Killer[height][1]) { // killer 2
+      value = KillerScore - 2;
+   } else if (height > 2 && move == Killer[height-2][0]) { // killer 3
       value = KillerScore - 1;
+   } else if (height > 2 && move == Killer[height-2][1]) { // killer 4
+      value = KillerScore - 3;
    } else { // quiet move
       value = quiet_move_value(move,board);
    }

@@ -22,6 +22,15 @@
 
 const int BackRankFlag = 1 << 0;
 
+const int BadPawnFileA = 1 << 0;
+const int BadPawnFileB = 1 << 1;
+const int BadPawnFileC = 1 << 2;
+const int BadPawnFileD = 1 << 3;
+const int BadPawnFileE = 1 << 4;
+const int BadPawnFileF = 1 << 5;
+const int BadPawnFileG = 1 << 6;
+const int BadPawnFileH = 1 << 7;
+
 // types
 
 struct pawn_info_t {
@@ -31,7 +40,8 @@ struct pawn_info_t {
    uint8 flags[ColourNb];
    uint8 passed_bits[ColourNb];
    uint8 single_file[ColourNb];
-   uint16 pad;
+   uint8 badpawns[ColourNb]; // Ryan
+   uint8 wsp[ColourNb]; // Ryan
 };
 
 // variables

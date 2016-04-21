@@ -496,6 +496,8 @@ static void square_clear(board_t * board, int square, int piece, bool update) {
    ASSERT(board->number[piece_12]>0);
    board->number[piece_12]--;
 
+   board->piece_material[colour] -= VALUE_PIECE(piece);  // Thomas 
+   
    // update
 
    if (update) {
@@ -629,6 +631,8 @@ static void square_set(board_t * board, int square, int piece, int pos, bool upd
    ASSERT(board->number[piece_12]<9);
    board->number[piece_12]++;
 
+   board->piece_material[colour] += VALUE_PIECE(piece);  // Thomas 
+   
    // update
 
    if (update) {

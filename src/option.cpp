@@ -26,32 +26,86 @@ static option_t Option[] = {
 
    { "Hash", true, "16", "spin", "min 4 max 1024", NULL },
 
+   // JAS
+   // search X seconds for the best move, equal to "go movetime"
+   { "Search Time",  true, "0",   "spin",  "min 0 max 3600", NULL },
+   // search X plies deep, equal to "go depth"
+   { "Search Depth",  true, "0",   "spin",  "min 0 max 20", NULL },
+   // JAS end
+
    { "Ponder", true, "false", "check", "", NULL },
 
    { "OwnBook",  true, "true",           "check",  "", NULL },
-   { "BookFile", true, "book_small.bin", "string", "", NULL },
+   { "BookFile", true, "performance.bin", "string", "", NULL },
+   { "MultiPV", true, "1", "spin",  "min 1 max 10", NULL },
 
-   { "NullMove Pruning",       true, "Fail High", "combo", "var Always var Fail High var Never", NULL },
-   { "NullMove Reduction",     true, "3",         "spin",  "min 1 max 3", NULL },
-   { "Verification Search",    true, "Endgame",   "combo", "var Always var Endgame var Never", NULL },
+   { "Bitbase pieces", true, "4", "spin",  "min 3 max 4", NULL },
+
+   { "NullMove Pruning",       true, "Always", "combo", "var Always var Fail High var Never", NULL },
+   { "NullMove Reduction",     true, "3",         "spin",  "min 1 max 4", NULL },
+   { "Verification Search",    true, "Always",   "combo", "var Always var Endgame var Never", NULL },
    { "Verification Reduction", true, "5",         "spin",  "min 1 max 6", NULL },
 
    { "History Pruning",     true, "true", "check", "", NULL },
-   { "History Threshold",   true, "60",   "spin",  "min 0 max 100", NULL },
+   { "History Threshold",   true, "70",   "spin",  "min 0 max 100", NULL },
+   { "History Research on Beta",     true, "true", "check", "", NULL },
 
-   { "Futility Pruning", true, "false", "check", "", NULL },
+   { "Rebel Reductions",     true, "true", "check", "", NULL },
+
+   { "Futility Pruning", true, "true", "check", "", NULL },
+   //{ "Quick Futility eval", true, "false", "check", "", NULL },
    { "Futility Margin",  true, "100",   "spin",  "min 0 max 500", NULL },
-
-   { "Delta Pruning", true, "false", "check", "", NULL },
+   { "Extended Futility Margin",  true, "300",   "spin",  "min 0 max 900", NULL },
+   { "Futility Pruning Depth",     true, "3",         "spin",  "min 1 max 6", NULL },
+   
+   { "Delta Pruning", true, "true", "check", "", NULL },
    { "Delta Margin",  true, "50",    "spin",  "min 0 max 500", NULL },
 
-   { "Quiescence Check Plies", true, "1", "spin", "min 0 max 2", NULL },
+   { "Quiescence Check Plies", true, "1", "spin", "min 0 max 5", NULL },
 
-   { "Material",        true, "100", "spin", "min 0 max 400", NULL },
-   { "Piece Activity",  true, "100", "spin", "min 0 max 400", NULL },
-   { "King Safety",     true, "100", "spin", "min 0 max 400", NULL },
-   { "Pawn Structure",  true, "100", "spin", "min 0 max 400", NULL },
-   { "Passed Pawns",    true, "100", "spin", "min 0 max 400", NULL },
+   { "Alt Pawn SQT", true, "false", "check", "", NULL },
+   { "Alt Knight SQT", true, "false", "check", "", NULL },
+   { "Alt Bishop SQT", true, "false", "check", "", NULL },
+
+   { "Chess Knowledge", true, "100", "spin", "min 0 max 500", NULL },
+   { "Piece Activity",  true, "100", "spin", "min 0 max 500", NULL },
+   { "Pawn Shelter",    true, "100", "spin", "min 0 max 500", NULL },
+   { "Pawn Storm",      true, "100", "spin", "min 0 max 500", NULL },
+   { "King Attack",     true, "100", "spin", "min 0 max 500", NULL },
+   { "Pawn Structure",  true, "100", "spin", "min 0 max 500", NULL },
+   { "Passed Pawns",    true, "100", "spin", "min 0 max 500", NULL },
+/*
+   { "knight tropism opening",  	true, "4",    "spin",  "min 0 max 10", NULL },
+   { "bishop tropism opening",  	true, "2",    "spin",  "min 0 max 10", NULL },
+   { "rook tropism opening",  		true, "2",    "spin",  "min 0 max 10", NULL },
+   { "queen tropism opening",  		true, "3",    "spin",  "min 0 max 10", NULL },
+
+   { "knight tropism endgame",  	true, "2",    "spin",  "min 0 max 10", NULL },
+   { "bishop tropism endgame",  	true, "1",    "spin",  "min 0 max 10", NULL },
+   { "rook tropism endgame",  		true, "1",    "spin",  "min 0 max 10", NULL },
+   { "queen tropism endgame",  		true, "3",    "spin",  "min 0 max 10", NULL },
+*/
+   { "Opening Pawn Value",	true, "70", "spin", "min 0 max 10000", NULL },
+   { "Opening Knight Value",	true, "325", "spin", "min 0 max 10000", NULL },
+   { "Opening Bishop Value",	true, "325", "spin", "min 0 max 10000", NULL },
+   { "Opening Rook Value",	true, "500", "spin", "min 0 max 10000", NULL },
+   { "Opening Queen Value",	true, "975", "spin", "min 0 max 10000", NULL },
+
+   { "Endgame Pawn Value",	true, "90", "spin", "min 0 max 10000", NULL },
+   { "Endgame Knight Value",	true, "315", "spin", "min 0 max 10000", NULL },
+   { "Endgame Bishop Value",	true, "315", "spin", "min 0 max 10000", NULL },
+   { "Endgame Rook Value",	true, "500", "spin", "min 0 max 10000", NULL },
+   { "Endgame Queen Value",	true, "975", "spin", "min 0 max 10000", NULL },
+
+   { "Bishop Pair Opening",	true, "50", "spin", "min 0 max 1000", NULL },
+   { "Bishop Pair Endgame",	true, "70", "spin", "min 0 max 1000", NULL },
+
+   { "Queen Knight combo", 	true, "15", "spin", "min 0 max 1000", NULL },
+   { "Rook Bishop combo",	true, "15", "spin", "min 0 max 1000", NULL },
+
+   { "Bad Trade Value",  true, "50",    "spin",  "min 0 max 1000", NULL }, 
+
+   { "Contempt Factor",	true, "0", "spin", "min -1000 max 1000", NULL },
 
    { NULL, false, NULL, NULL, NULL, NULL, },
 };

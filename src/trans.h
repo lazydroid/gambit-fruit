@@ -15,6 +15,7 @@ typedef struct trans trans_t;
 // variables
 
 extern trans_t Trans[1];
+extern bool trans_endgame;
 
 // functions
 

@@ -5,6 +5,11 @@
 
 #include <cstdio>
 #include <cstdlib>
+#include <string.h>
+
+#if defined _WIN32
+#include <windows.h>
+#endif
 
 #include "attack.h"
 #include "book.h"
@@ -22,6 +27,9 @@
 #include "vector.h"
 
 // functions
+#if defined _WIN32
+void LoadEgbbLibrary(char* main_path);
+#endif
 
 // main()
 
@@ -32,9 +40,17 @@ int main(int argc, char * argv[]) {
    util_init();
    my_random_init(); // for opening book
 
-   printf("Fruit 2.1 UCI by Fabien Letouzey\n");
+   printf("Gambit Fruit based on Fruit 2.1 and Toga by Ryan Benitez, Thomas Gaksch and Fabien Letouzey\n");
 
    // early initialisation (the rest is done after UCI options are parsed in protocol.cpp)
+
+#if defined _WIN32
+
+	{
+	   char* egbb_path = "c:/egbb/";
+	   LoadEgbbLibrary(egbb_path);
+	}
+#endif
 
    option_init();
 
@@ -58,6 +74,41 @@ int main(int argc, char * argv[]) {
 
    return EXIT_SUCCESS;
 }
+
+/*
+Bitbases
+*/
+
+#if defined _WIN32
+
+PPROBE_EGBB probe_egbb;
+int egbb_is_loaded;
+typedef void (*PLOAD_EGBB) (char* path);
+
+void LoadEgbbLibrary(char* main_path) {
+	HMODULE hmod;
+	PLOAD_EGBB load_egbb;
+	char path[256];
+
+	strcpy(path,main_path);
+	strcat(path,"egbbdll.dll");
+	if(hmod = LoadLibrary(path)) {
+		load_egbb = (PLOAD_EGBB) GetProcAddress(hmod,"load_egbb");
+		probe_egbb = (PPROBE_EGBB) GetProcAddress(hmod,"probe_egbb");
+		load_egbb(main_path);
+		egbb_is_loaded = 1;
+		printf("Bitbase loaded\n");
+	} else {
+		egbb_is_loaded = 0;
+		printf("Bitbase not loaded\n");
+	}
+}
+
+#endif
+/*
+EndBitbases
+*/
+
 
 // end of main.cpp
 

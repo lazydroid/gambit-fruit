@@ -236,6 +236,7 @@ void board_init_list(board_t * board) {
       // piece list
 
       pos = 0;
+	  board->piece_material[colour] = 0; // Thomas
 
       for (sq_64 = 0; sq_64 < 64; sq_64++) {
 
@@ -254,10 +255,14 @@ void board_init_list(board_t * board) {
 
             board->piece_nb++;
             board->number[PIECE_TO_12(piece)]++;
+
+			if (piece != WK && piece != BK) // Thomas
+				board->piece_material[colour] += VALUE_PIECE(piece);
          }
       }
 
       if (board->number[COLOUR_IS_WHITE(colour)?WhiteKing12:BlackKing12] != 1) my_fatal("board_init_list(): illegal position\n");
+	  if (board->number[WhiteBishop12] >= 10) my_fatal("board_init_list(): illegal position!\n");	
 
       ASSERT(pos>=1&&pos<=16);
       board->piece[colour][pos] = SquareNone;
@@ -329,6 +334,8 @@ void board_init_list(board_t * board) {
             board->piece_nb++;
             board->number[PIECE_TO_12(piece)]++;
             board->pawn_file[colour][SQUARE_FILE(sq)] |= BIT(PAWN_RANK(sq,colour));
+
+			board->piece_material[colour] += VALUE_PIECE(piece); // Thomas
          }
       }
 
@@ -429,7 +436,7 @@ bool board_is_stalemate(board_t * board) {
 
 bool board_is_repetition(const board_t * board) {
 
-   int i;
+   int i, z;
 
    ASSERT(board!=NULL);
 
@@ -446,9 +453,11 @@ bool board_is_repetition(const board_t * board) {
    // position repetition
 
    ASSERT(board->sp>=board->ply_nb);
-
+   //z = 0;
    for (i = 4; i <= board->ply_nb; i += 2) {
-      if (board->stack[board->sp-i] == board->key) return true;
+       if (board->stack[board->sp-i] == board->key) return true;
+	   //if (board->stack[board->sp-i] == board->key) z++;
+	   //if (z >= 2) return true; // value 2 for 3-Times Repetition
    }
 
    return false;
