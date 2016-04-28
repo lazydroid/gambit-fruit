@@ -2,7 +2,7 @@ LOCAL_PATH := $(call my-dir)
 
 include $(CLEAR_VARS)
 
-LOCAL_MODULE    := fruit-reloaded
+LOCAL_MODULE    := gfruit
 LOCAL_SRC_FILES := \
 	attack.cpp board.cpp book.cpp eval.cpp fen.cpp hash.cpp list.cpp main.cpp \
 	material.cpp move.cpp move_check.cpp move_do.cpp move_evasion.cpp move_gen.cpp move_legal.cpp \
